@@ -7,11 +7,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 import { createPurchase, verifyPayment } from '@/app/actions'
 import { useToast } from "@/hooks/use-toast"
 import { Loader2 } from 'lucide-react'
 import type { StoragePlan } from '@/lib/types'
 import { loadScript } from '@/utils/loadScript'
+import { PolicyDialog } from './policy-dialog'
 
 declare global {
   interface Window {
@@ -33,6 +35,8 @@ export function PurchaseForm({ plan, onClose, onError }: PurchaseFormProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [credentials, setCredentials] = useState<{ username: string; password: string } | null>(null)
+  const [agreedToTerms, setAgreedToTerms] = useState(false)
+  const [policyDialogOpen, setPolicyDialogOpen] = useState(false)
   const { toast } = useToast()
 
   const plans = [
@@ -55,6 +59,10 @@ export function PurchaseForm({ plan, onClose, onError }: PurchaseFormProps) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!selectedPlanDetails) return
+    if (!agreedToTerms) {
+      setError("You must agree to the terms and conditions to proceed.")
+      return
+    }
 
     setLoading(true)
     setError(null)
@@ -121,96 +129,128 @@ export function PurchaseForm({ plan, onClose, onError }: PurchaseFormProps) {
   }
 
   return (
-    <Dialog open={!!plan || !!credentials} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>
-            {credentials ? 'Account Created' : 'Complete Your Purchase'}
-          </DialogTitle>
-        </DialogHeader>
-        {credentials ? (
-          <div className="grid gap-4">
-            <Alert>
-              <AlertTitle>Important</AlertTitle>
-              <AlertDescription>
-                Please save these credentials securely. You will need them to access your storage.
-              </AlertDescription>
-            </Alert>
-            <div className="grid gap-2">
-              <Label>Email (Username)</Label>
-              <Input value={credentials.username} readOnly />
-            </div>
-            <div className="grid gap-2">
-              <Label>Password</Label>
-              <Input value={credentials.password} readOnly />
-            </div>
-            <Button onClick={onClose}>Close</Button>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="firstName">First Name</Label>
-              <Input
-                id="firstName"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                required
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="lastName">Last Name</Label>
-              <Input
-                id="lastName"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                required
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="plan">Plan</Label>
-              <Select value={selectedPlan} onValueChange={setSelectedPlan}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a plan" />
-                </SelectTrigger>
-                <SelectContent>
-                  {plans.map((plan) => (
-                    <SelectItem key={plan.id} value={plan.id}>
-                      {plan.name} - ₹{plan.price}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {error && (
-              <Alert variant="destructive">
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
+    <>
+      <Dialog open={!!plan || !!credentials} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>
+              {credentials ? 'Account Created' : 'Complete Your Purchase'}
+            </DialogTitle>
+          </DialogHeader>
+          {credentials ? (
+            <div className="grid gap-4">
+              <Alert>
+                <AlertTitle>Important</AlertTitle>
+                <AlertDescription>
+                  Please save these credentials securely. You will need them to access your storage.
+                </AlertDescription>
               </Alert>
-            )}
-            <Button type="submit" disabled={loading || !selectedPlan}>
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                `Pay ₹${selectedPlanDetails?.price || 0}`
+              <div className="grid gap-2">
+                <Label>Email (Username)</Label>
+                <Input value={credentials.username} readOnly />
+              </div>
+              <div className="grid gap-2">
+                <Label>Password</Label>
+                <Input value={credentials.password} readOnly />
+              </div>
+              <Button onClick={onClose}>Close</Button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="firstName">First Name</Label>
+                <Input
+                  id="firstName"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input
+                  id="lastName"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="email">Primary Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="plan">Plan</Label>
+                <Select value={selectedPlan} onValueChange={setSelectedPlan}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a plan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {plans.map((plan) => (
+                      <SelectItem key={plan.id} value={plan.id}>
+                        {plan.name} - ₹{plan.price}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="mt-4 mb-2 p-4 bg-gray-100 rounded-md text-sm">
+                <h3 className="font-semibold mb-2">Terms and Conditions Summary:</h3>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>Your primary email and newly generated mail will be used for communication.</li>
+                  <li>WeCloud Storage is not responsible for data loss.</li>
+                  <li>Users are responsible for maintaining account credential confidentiality.</li>
+                  <li>We reserve the right to terminate accounts violating our terms.</li>
+                  <li>Full refund available within 5 days of purchase.</li>
+                </ul>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="terms" 
+                  checked={agreedToTerms}
+                  onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
+                />
+                <label
+                  htmlFor="terms"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  I agree to the{" "}
+                  <span 
+                    className="text-blue-500 cursor-pointer hover:underline" 
+                    onClick={() => setPolicyDialogOpen(true)}
+                  >
+                    terms and conditions
+                  </span>
+                </label>
+              </div>
+              {error && (
+                <Alert variant="destructive">
+                  <AlertTitle>Error</AlertTitle>
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
               )}
-            </Button>
-          </form>
-        )}
-      </DialogContent>
-    </Dialog>
+              <Button type="submit" disabled={loading || !selectedPlan || !agreedToTerms}>
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  `Pay ₹${selectedPlanDetails?.price || 0}`
+                )}
+              </Button>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+      <PolicyDialog open={policyDialogOpen} onOpenChange={setPolicyDialogOpen} section="terms" />
+    </>
   )
 }
 

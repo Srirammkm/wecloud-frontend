@@ -7,6 +7,7 @@ import { Check, Cloud, Shield, Clock } from 'lucide-react'
 import { PurchaseForm } from '@/components/purchase-form'
 import type { StoragePlan } from '@/lib/types'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { PolicyDialog } from '@/components/policy-dialog'
 
 const plans: StoragePlan[] = [
   {
@@ -103,6 +104,8 @@ function PlanCard({ plan, onSelect }: { plan: StoragePlan; onSelect: (plan: Stor
 export default function Home() {
   const [selectedPlan, setSelectedPlan] = useState<StoragePlan | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [policyDialogOpen, setPolicyDialogOpen] = useState(false)
+  const [policySection, setPolicySection] = useState<'all' | 'policies' | 'terms' | 'privacy' | 'contact' | 'refund'>('all')
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-700">
@@ -200,12 +203,42 @@ export default function Home() {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
+        <section className="mt-20 text-center">
+        <h2 className="text-2xl font-bold text-white mb-4">Policies and Information</h2>
+        <div className="flex justify-center space-x-4 text-blue-300">
+          {[
+            { title: 'Policies', section: 'policies' },
+            { title: 'Terms and Conditions', section: 'terms' },
+            { title: 'Privacy Policy', section: 'privacy' },
+            { title: 'Contact Information', section: 'contact' },
+            { title: 'Refund Policy', section: 'refund' },
+          ].map(({ title, section }) => (
+            <a
+              key={section}
+              href="#"
+              className="hover:text-blue-100 transition-colors"
+              onClick={(e) => {
+                e.preventDefault()
+                setPolicySection(section as any)
+                setPolicyDialogOpen(true)
+              }}
+            >
+              {title}
+            </a>
+          ))}
+        </div>
+        </section>
       </main>
 
       <PurchaseForm
         plan={selectedPlan}
         onClose={() => setSelectedPlan(null)}
         onError={(errorMessage) => setError(errorMessage)}
+      />
+      <PolicyDialog
+        open={policyDialogOpen}
+        onOpenChange={setPolicyDialogOpen}
+        section={policySection}
       />
     </div>
   )
