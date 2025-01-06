@@ -31,7 +31,6 @@ export async function createPurchase(plan: StoragePlan, email: string, firstName
   }
 
   const password = generateSecurePassword();
-  const hashedPassword = await bcrypt.hash(password, 10);
   const orderId = `ORDER_${randomBytes(8).toString('hex')}`
 
   const user: User = {
@@ -44,7 +43,7 @@ export async function createPurchase(plan: StoragePlan, email: string, firstName
     nextMaintenanceDate: new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000), // 3 years from now
     credentials: {
       username: convertedEmail,
-      password: hashedPassword
+      password: password
     },
     paymentStatus: 'pending'
   }
