@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Check, Cloud, Shield, Clock } from 'lucide-react'
 import { PurchaseForm } from '@/components/purchase-form'
 import type { StoragePlan } from '@/lib/types'
+import { GoogleAppsAnimation } from '@/components/google-apps-animation'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { PolicyDialog } from '@/components/policy-dialog'
 
@@ -117,6 +118,7 @@ export default function Home() {
       </header>
 
       <main className="container mx-auto px-4 pb-20">
+      <GoogleAppsAnimation />
         <section className="mb-20">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             {[{

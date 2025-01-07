@@ -30,23 +30,7 @@ export async function createPurchase(plan: StoragePlan, email: string, firstName
     return { success: false, message: 'Email already registered' }
   }
 
-  const password = generateSecurePassword();
   const orderId = `ORDER_${randomBytes(8).toString('hex')}`
-
-  const user: User = {
-    id: randomBytes(16).toString('hex'),
-    email: convertedEmail,
-    firstName,
-    lastName,
-    plan: plan.id,
-    purchaseDate: new Date(),
-    nextMaintenanceDate: new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000), // 3 years from now
-    credentials: {
-      username: convertedEmail,
-      password: password
-    },
-    paymentStatus: 'pending'
-  }
 
   try {
     // Create Razorpay order
@@ -56,9 +40,6 @@ export async function createPurchase(plan: StoragePlan, email: string, firstName
       receipt: orderId,
     })
 
-    // Save user to database
-    await db.collection('users').insertOne(user)
-
     // Save payment details
     const paymentDetails: PaymentDetails = {
       orderId,
@@ -67,6 +48,8 @@ export async function createPurchase(plan: StoragePlan, email: string, firstName
       email: convertedEmail,
       planId: plan.id,
       razorpayOrderId: order.id,
+      firstName,
+      lastName,
     }
     await db.collection('payments').insertOne(paymentDetails)
 
@@ -74,10 +57,6 @@ export async function createPurchase(plan: StoragePlan, email: string, firstName
       success: true,
       message: 'Order created successfully',
       orderId: order.id,
-      credentials: {
-        username: convertedEmail,
-        password: password // Return the non-hashed password to the client
-      }
     }
   } catch (error) {
     console.error('Error creating order:', error);
@@ -115,28 +94,43 @@ export async function verifyPayment(orderId: string, razorpayPaymentId: string, 
       }
     )
 
-    const user = await db.collection('users').findOne({ email: payment.email })
-    if (user) {
-      // Create Google user
-      await createGoogleUser(user.firstName, user.lastName, user.email, user.credentials.password, user.plan)
+    // Generate password and create user
+    const password = generateSecurePassword();
 
-      await db.collection('users').updateOne(
-        { _id: user._id },
-        { $set: { paymentStatus: 'completed' } }
-      )
+    const user: User = {
+      id: randomBytes(16).toString('hex'),
+      email: payment.email,
+      firstName: payment.firstName,
+      lastName: payment.lastName,
+      plan: payment.planId,
+      purchaseDate: new Date(),
+      nextMaintenanceDate: new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000), // 3 years from now
+      credentials: {
+        username: payment.email,
+        password: password
+      },
+      paymentStatus: 'completed'
     }
 
-    return { success: true, status: 'completed' }
+    // Create user in database
+    await db.collection('users').insertOne(user)
+
+    // Create Google user
+    await createGoogleUser(user.firstName, user.lastName, user.email, password, user.plan)
+
+    return { 
+      success: true, 
+      status: 'completed',
+      credentials: {
+        username: user.email,
+        password: password // Return the non-hashed password to the client
+      }
+    }
   } else {
     // Payment verification failed
     await db.collection('payments').updateOne(
       { razorpayOrderId: orderId },
       { $set: { status: 'failed' } }
-    )
-
-    await db.collection('users').updateOne(
-      { email: payment.email },
-      { $set: { paymentStatus: 'failed' } }
     )
 
     throw new Error('Payment verification failed')

@@ -45,7 +45,7 @@ export function PolicyDialog({ open, onOpenChange, section = 'all' }: PolicyDial
       <p className="mb-4">
         For any inquiries or support, please contact us at:
         <br />Email: support@wecloudstorage.in
-        <br />Phone: +91 7010561869
+        <br />Phone: +91 1234567890
       </p>
 
       <h2 className="text-lg font-semibold mb-2">Operational Address</h2>
@@ -96,3 +96,4 @@ export function PolicyDialog({ open, onOpenChange, section = 'all' }: PolicyDial
     </Dialog>
   )
 }
+

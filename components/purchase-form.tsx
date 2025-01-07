@@ -176,7 +176,7 @@ export function PurchaseForm({ plan, onClose, onError }: PurchaseFormProps) {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="email">Primary Email</Label>
+                <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   type="email"
@@ -203,10 +203,8 @@ export function PurchaseForm({ plan, onClose, onError }: PurchaseFormProps) {
               <div className="mt-4 mb-2 p-4 bg-gray-100 rounded-md text-sm">
                 <h3 className="font-semibold mb-2">Terms and Conditions Summary:</h3>
                 <ul className="list-disc pl-5 space-y-1">
-                  <li>Your primary email and newly generated mail will be used for communication.</li>
-                  <li>WeCloud Storage is not responsible for data loss.</li>
+                  <li>WeCloud Storage is not responsible for data loss if Google deletes the account.</li>
                   <li>Users are responsible for maintaining account credential confidentiality.</li>
-                  <li>We reserve the right to terminate accounts violating our terms.</li>
                   <li>Full refund available within 5 days of purchase.</li>
                 </ul>
               </div>
