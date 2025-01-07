@@ -30,5 +30,7 @@ export interface PaymentDetails {
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
   razorpaySignature?: string;
+  firstName: string;
+  lastName: string;
 }
 

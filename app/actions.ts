@@ -9,6 +9,7 @@ import crypto from 'crypto'
 import { createGoogleUser, convertEmail } from '@/lib/googleApi'
 import bcrypt from 'bcrypt'
 
+
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID!,
   key_secret: process.env.RAZORPAY_KEY_SECRET!
@@ -43,14 +44,16 @@ export async function createPurchase(plan: StoragePlan, email: string, firstName
     // Save payment details
     const paymentDetails: PaymentDetails = {
       orderId,
+      firstName,
+      lastName,
       amount: plan.price,
       status: 'pending',
       email: convertedEmail,
       planId: plan.id,
       razorpayOrderId: order.id,
-      firstName,
-      lastName,
+
     }
+    
     await db.collection('payments').insertOne(paymentDetails)
 
     return { 
@@ -96,6 +99,7 @@ export async function verifyPayment(orderId: string, razorpayPaymentId: string, 
 
     // Generate password and create user
     const password = generateSecurePassword();
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const user: User = {
       id: randomBytes(16).toString('hex'),
@@ -107,7 +111,7 @@ export async function verifyPayment(orderId: string, razorpayPaymentId: string, 
       nextMaintenanceDate: new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000), // 3 years from now
       credentials: {
         username: payment.email,
-        password: password
+        password: hashedPassword
       },
       paymentStatus: 'completed'
     }
