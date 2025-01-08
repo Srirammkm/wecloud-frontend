@@ -9,7 +9,6 @@ import crypto from 'crypto'
 import { createGoogleUser, convertEmail } from '@/lib/googleApi'
 import bcrypt from 'bcrypt'
 
-
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID!,
   key_secret: process.env.RAZORPAY_KEY_SECRET!
@@ -26,7 +25,7 @@ export async function createPurchase(plan: StoragePlan, email: string, firstName
   const convertedEmail = convertEmail(email);
 
   // Check if user already exists
-  const existingUser = await db.collection('users').findOne({ email: convertedEmail })
+  const existingUser = await db.collection('users').findOne({ email: convertedEmail }, { projection: { _id: 1 } })
   if (existingUser) {
     return { success: false, message: 'Email already registered' }
   }
@@ -44,16 +43,14 @@ export async function createPurchase(plan: StoragePlan, email: string, firstName
     // Save payment details
     const paymentDetails: PaymentDetails = {
       orderId,
-      firstName,
-      lastName,
       amount: plan.price,
       status: 'pending',
       email: convertedEmail,
       planId: plan.id,
       razorpayOrderId: order.id,
-
+      firstName,
+      lastName,
     }
-    
     await db.collection('payments').insertOne(paymentDetails)
 
     return { 
@@ -86,20 +83,7 @@ export async function verifyPayment(orderId: string, razorpayPaymentId: string, 
 
   if (expectedSignature === razorpaySignature) {
     // Payment is successful
-    await db.collection('payments').updateOne(
-      { razorpayOrderId: orderId },
-      { 
-        $set: { 
-          status: 'completed',
-          razorpayPaymentId,
-          razorpaySignature
-        } 
-      }
-    )
-
-    // Generate password and create user
     const password = generateSecurePassword();
-    const hashedPassword = await bcrypt.hash(password, 10);
 
     const user: User = {
       id: randomBytes(16).toString('hex'),
@@ -111,24 +95,43 @@ export async function verifyPayment(orderId: string, razorpayPaymentId: string, 
       nextMaintenanceDate: new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000), // 3 years from now
       credentials: {
         username: payment.email,
-        password: hashedPassword
+        password: password
       },
       paymentStatus: 'completed'
     }
 
-    // Create user in database
-    await db.collection('users').insertOne(user)
+    // Use a transaction to ensure atomicity
+    const session = client.startSession();
+    try {
+      await session.withTransaction(async () => {
+        await db.collection('payments').updateOne(
+          { razorpayOrderId: orderId },
+          { 
+            $set: { 
+              status: 'completed',
+              razorpayPaymentId,
+              razorpaySignature
+            } 
+          },
+          { session }
+        )
 
-    // Create Google user
-    await createGoogleUser(user.firstName, user.lastName, user.email, password, user.plan)
+        await db.collection('users').insertOne(user, { session })
+      });
 
-    return { 
-      success: true, 
-      status: 'completed',
-      credentials: {
-        username: user.email,
-        password: password // Return the non-hashed password to the client
+      // Create Google user (this is outside the transaction as it's an external operation)
+      await createGoogleUser(user.firstName, user.lastName, user.email, password, user.plan)
+
+      return { 
+        success: true, 
+        status: 'completed',
+        credentials: {
+          username: user.email,
+          password: password // Return the non-hashed password to the client
+        }
       }
+    } finally {
+      await session.endSession();
     }
   } else {
     // Payment verification failed

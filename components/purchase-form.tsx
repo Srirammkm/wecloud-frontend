@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,10 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { createPurchase, verifyPayment } from '@/app/actions'
 import { useToast } from "@/hooks/use-toast"
-import { Loader2 } from 'lucide-react'
+import { Loader2, Cloud } from 'lucide-react'
 import type { StoragePlan } from '@/lib/types'
 import { loadScript } from '@/utils/loadScript'
 import { PolicyDialog } from './policy-dialog'
+import { Toast } from '@radix-ui/react-toast'
 
 declare global {
   interface Window {
@@ -56,7 +57,7 @@ export function PurchaseForm({ plan, onClose, onError }: PurchaseFormProps) {
       });
   }, [onError]);
 
-  async function handleSubmit(e: React.FormEvent) {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedPlanDetails) return
     if (!agreedToTerms) {
@@ -68,7 +69,7 @@ export function PurchaseForm({ plan, onClose, onError }: PurchaseFormProps) {
     setError(null)
 
     try {
-      const result: any = await createPurchase({
+      const result = await createPurchase({
         id: selectedPlanDetails.id,
         name: selectedPlanDetails.name,
         storage: selectedPlanDetails.id,
@@ -79,27 +80,33 @@ export function PurchaseForm({ plan, onClose, onError }: PurchaseFormProps) {
       if (result.success) {
         const options = {
           key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-          amount: selectedPlanDetails.price * 100, // Amount in paise
+          amount: selectedPlanDetails.price * 100,
           currency: "INR",
           name: "WeCloud Storage",
           description: `Purchase of ${selectedPlanDetails.name}`,
           order_id: result.orderId,
           handler: async function (response: any) {
-            const verificationResult = await verifyPayment(
-              response.razorpay_order_id,
-              response.razorpay_payment_id,
-              response.razorpay_signature
-            )
-            if (verificationResult.success) {
-              setCredentials(result.credentials)
-              toast({
-                title: "Payment successful!",
-                description: "Your account has been created.",
-              })
-            } else {
+            try {
+              const verificationResult = await verifyPayment(
+                response.razorpay_order_id,
+                response.razorpay_payment_id,
+                response.razorpay_signature
+              )
+              if (verificationResult.success) {
+                setCredentials(verificationResult.credentials)
+                toast({
+                  title: "Payment successful!",
+                  description: "Your account has been created.",
+                })
+              } else {
+                throw new Error("Payment verification failed")
+              }
+            } catch (error) {
               const errorMessage = "Payment verification failed. Please contact support."
               setError(errorMessage)
               onError(errorMessage)
+            } finally {
+              setLoading(false)
             }
           },
           prefill: {
@@ -114,19 +121,16 @@ export function PurchaseForm({ plan, onClose, onError }: PurchaseFormProps) {
         const razorpay = new window.Razorpay(options)
         razorpay.open()
       } else {
-        const errorMessage = result.message || "Purchase failed"
-        setError(errorMessage)
-        onError(errorMessage)
+        throw new Error(result.message || "Purchase failed")
       }
     } catch (error) {
       console.error('Purchase failed:', error)
       const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred"
       setError(errorMessage)
       onError(errorMessage)
-    } finally {
       setLoading(false)
     }
-  }
+  }, [selectedPlanDetails, agreedToTerms, email, firstName, lastName, createPurchase, verifyPayment, onError, toast])
 
   return (
     <>
@@ -134,10 +138,20 @@ export function PurchaseForm({ plan, onClose, onError }: PurchaseFormProps) {
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>
-              {credentials ? 'Account Created' : 'Complete Your Purchase'}
+              {loading ? 'Processing Your Purchase' : credentials ? 'Account Created' : 'Complete Your Purchase'}
             </DialogTitle>
           </DialogHeader>
-          {credentials ? (
+          {loading ? (
+            <div className="flex flex-col items-center justify-center space-y-4">
+              <div className="relative w-24 h-24">
+                <Cloud className="w-24 h-24 text-blue-500 animate-pulse" />
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                  <Loader2 className="w-12 h-12 text-white animate-spin" />
+                </div>
+              </div>
+              <p className="text-center text-lg font-medium">Creating your WeCloud account...</p>
+            </div>
+          ) : credentials ? (
             <div className="grid gap-4">
               <Alert>
                 <AlertTitle>Important</AlertTitle>
@@ -176,7 +190,7 @@ export function PurchaseForm({ plan, onClose, onError }: PurchaseFormProps) {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">Primary Email</Label>
                 <Input
                   id="email"
                   type="email"
@@ -203,7 +217,7 @@ export function PurchaseForm({ plan, onClose, onError }: PurchaseFormProps) {
               <div className="mt-4 mb-2 p-4 bg-gray-100 rounded-md text-sm">
                 <h3 className="font-semibold mb-2">Terms and Conditions Summary:</h3>
                 <ul className="list-disc pl-5 space-y-1">
-                  <li>WeCloud Storage is not responsible for data loss if Google deletes the account.</li>
+                  <li>Above mentioned **Primary Email ID will be used for communication.</li>
                   <li>Users are responsible for maintaining account credential confidentiality.</li>
                   <li>Full refund available within 5 days of purchase.</li>
                 </ul>
