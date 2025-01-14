@@ -45,14 +45,13 @@ export function PolicyDialog({ open, onOpenChange, section = 'all' }: PolicyDial
       <p className="mb-4">
         For any inquiries or support, please contact us at:
         <br />Email: support@wecloudstorage.in
-        <br />Phone: +91 1234567890
       </p>
 
       <h2 className="text-lg font-semibold mb-2">Operational Address</h2>
       <p className="mb-4">
         WeCloud Storage Pvt. Ltd.
-        <br />123 Tech Park, Cyber City
-        <br />Bangalore, Karnataka 560100
+        <br />F3, NV Complex, KR Puram
+        <br />Bangalore, Karnataka 560036
         <br />India
       </p>
     </>
